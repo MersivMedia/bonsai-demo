@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface Message {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant';
   content: string;
 }
 
@@ -19,7 +19,7 @@ export default function Home() {
   const [tokensPerSec, setTokensPerSec] = useState<number | null>(null);
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   
-  const workerRef = useRef<Worker | null>(null);
+  const engineRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -31,9 +31,8 @@ export default function Home() {
   }, [messages]);
 
   useEffect(() => {
-    // Check WebGPU support
     const checkWebGPU = async () => {
-      if (!navigator.gpu) {
+      if (typeof navigator === 'undefined' || !navigator.gpu) {
         setWebGPUSupported(false);
         return;
       }
@@ -47,7 +46,7 @@ export default function Home() {
     checkWebGPU();
   }, []);
 
-  const initializeModel = useCallback(async () => {
+  const initializeModel = async () => {
     if (loadingState === 'loading' || loadingState === 'ready') return;
     
     setLoadingState('checking');
@@ -60,61 +59,75 @@ export default function Home() {
     }
 
     setLoadingState('loading');
-    setStatusText('Initializing Bonsai 8B (1-bit)...');
+    setStatusText('Initializing WebLLM...');
 
-    // Create worker for model loading
-    const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-    workerRef.current = worker;
-
-    worker.onmessage = (e) => {
-      const { type, data } = e.data;
+    try {
+      // Dynamic import to avoid SSR issues
+      const webllm = await import('@mlc-ai/web-llm');
       
-      switch (type) {
-        case 'progress':
-          setLoadProgress(data.progress);
-          setStatusText(data.text || `Loading model... ${Math.round(data.progress)}%`);
-          break;
-        case 'ready':
-          setLoadingState('ready');
-          setStatusText('Model ready!');
-          break;
-        case 'token':
-          setMessages(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'assistant') {
-              return [...prev.slice(0, -1), { ...last, content: last.content + data.token }];
-            }
-            return [...prev, { role: 'assistant', content: data.token }];
-          });
-          break;
-        case 'done':
-          setIsGenerating(false);
-          setTokensPerSec(data.tokensPerSec);
-          break;
-        case 'error':
-          setLoadingState('error');
-          setStatusText(data.message || 'Failed to load model');
-          setIsGenerating(false);
-          break;
-      }
-    };
+      // Use a small model that works with WebLLM
+      const modelId = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+      
+      const engine = await webllm.CreateMLCEngine(modelId, {
+        initProgressCallback: (progress) => {
+          setLoadProgress(Math.round(progress.progress * 100));
+          setStatusText(progress.text || `Loading model... ${Math.round(progress.progress * 100)}%`);
+        },
+      });
 
-    worker.postMessage({ type: 'init' });
-  }, [loadingState, webGPUSupported]);
+      engineRef.current = engine;
+      setLoadingState('ready');
+      setStatusText('Model ready!');
+    } catch (error: any) {
+      console.error('Model init error:', error);
+      setLoadingState('error');
+      setStatusText(error.message || 'Failed to load model');
+    }
+  };
 
   const sendMessage = async () => {
-    if (!input.trim() || isGenerating || loadingState !== 'ready') return;
+    if (!input.trim() || isGenerating || loadingState !== 'ready' || !engineRef.current) return;
 
     const userMessage: Message = { role: 'user', content: input.trim() };
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setInput('');
     setIsGenerating(true);
     setTokensPerSec(null);
 
-    workerRef.current?.postMessage({
-      type: 'generate',
-      messages: [...messages, userMessage],
-    });
+    try {
+      const startTime = performance.now();
+      let tokenCount = 0;
+      let assistantContent = '';
+
+      // Add empty assistant message for streaming
+      setMessages([...newMessages, { role: 'assistant', content: '' }]);
+
+      const chunks = await engineRef.current.chat.completions.create({
+        messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        stream: true,
+        max_tokens: 512,
+        temperature: 0.7,
+      });
+
+      for await (const chunk of chunks) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          assistantContent += delta;
+          tokenCount++;
+          setMessages([...newMessages, { role: 'assistant', content: assistantContent }]);
+        }
+      }
+
+      const endTime = performance.now();
+      const elapsedSec = (endTime - startTime) / 1000;
+      setTokensPerSec(Math.round((tokenCount / elapsedSec) * 10) / 10);
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      setMessages([...newMessages, { role: 'assistant', content: `Error: ${error.message}` }]);
+    }
+
+    setIsGenerating(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -132,15 +145,15 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-                🌳 Bonsai 8B Demo
+                🌳 Bonsai-Style Demo
               </h1>
               <p className="text-sm text-gray-400 mt-1">
-                1-bit LLM • 1.15GB • Runs in your browser via WebGPU
+                WebGPU LLM • Runs entirely in your browser
               </p>
             </div>
             {tokensPerSec && (
               <div className="text-right">
-                <div className="text-lg font-mono text-green-400">{tokensPerSec.toFixed(1)} tok/s</div>
+                <div className="text-lg font-mono text-green-400">{tokensPerSec} tok/s</div>
                 <div className="text-xs text-gray-500">Generation speed</div>
               </div>
             )}
@@ -153,15 +166,15 @@ export default function Home() {
         {loadingState === 'idle' && (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
             <div className="text-6xl mb-6">🌳</div>
-            <h2 className="text-3xl font-bold mb-4">Bonsai 8B</h2>
+            <h2 className="text-3xl font-bold mb-4">Browser-Based LLM Demo</h2>
             <p className="text-gray-400 mb-2 max-w-md">
-              The first commercially viable 1-bit LLM. 8 billion parameters compressed to just 1.15GB — 
-              14x smaller than standard models with competitive performance.
+              Inspired by PrismML&apos;s Bonsai — running AI models directly in your browser 
+              using WebGPU. No server required.
             </p>
             <div className="flex gap-4 text-sm text-gray-500 mb-8">
-              <span>✓ 70.5% benchmark avg</span>
-              <span>✓ Apache 2.0 license</span>
               <span>✓ Runs locally</span>
+              <span>✓ Private</span>
+              <span>✓ No API costs</span>
             </div>
             
             {webGPUSupported === false ? (
@@ -176,13 +189,19 @@ export default function Home() {
                 onClick={initializeModel}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-semibold py-3 px-8 rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/25"
               >
-                Load Model (~1.15GB)
+                Load Model
               </button>
             )}
             
-            <p className="text-xs text-gray-600 mt-4">
-              Model weights are cached in your browser after first download.
-            </p>
+            <div className="mt-8 p-4 bg-gray-900 rounded-lg max-w-md">
+              <p className="text-sm text-gray-400">
+                <strong className="text-green-400">About Bonsai:</strong> PrismML&apos;s 1-bit Bonsai 8B 
+                fits an 8B parameter model in just 1.15GB — 14x smaller than standard models.
+                <a href="https://prismml.com" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300 ml-1">
+                  Learn more →
+                </a>
+              </p>
+            </div>
           </div>
         )}
 
@@ -200,7 +219,7 @@ export default function Home() {
                 />
               </div>
               <p className="text-center text-sm text-gray-500 mt-2">
-                {loadProgress.toFixed(0)}%
+                {loadProgress}%
               </p>
             </div>
           </div>
@@ -229,7 +248,7 @@ export default function Home() {
               {messages.length === 0 && (
                 <div className="text-center text-gray-500 py-12">
                   <p className="text-lg mb-2">Model loaded! 🎉</p>
-                  <p className="text-sm">Start chatting with Bonsai 8B</p>
+                  <p className="text-sm">Start chatting</p>
                 </div>
               )}
               {messages.map((msg, i) => (
@@ -292,12 +311,12 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
           <p>
             Powered by{' '}
+            <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300">
+              WebLLM
+            </a>
+            {' '}• Inspired by{' '}
             <a href="https://prismml.com" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300">
               PrismML Bonsai
-            </a>
-            {' '}• Built with{' '}
-            <a href="https://github.com/huggingface/transformers.js" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300">
-              Transformers.js
             </a>
           </p>
         </div>
