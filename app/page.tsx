@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import './globals.css';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -62,10 +63,7 @@ export default function Home() {
     setStatusText('Initializing WebLLM...');
 
     try {
-      // Dynamic import to avoid SSR issues
       const webllm = await import('@mlc-ai/web-llm');
-      
-      // Use a small model that works with WebLLM
       const modelId = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
       
       const engine = await webllm.CreateMLCEngine(modelId, {
@@ -100,7 +98,6 @@ export default function Home() {
       let tokenCount = 0;
       let assistantContent = '';
 
-      // Add empty assistant message for streaming
       setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
       const chunks = await engineRef.current.chat.completions.create({
@@ -138,23 +135,32 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+      <header style={{ 
+        borderBottom: '1px solid #1f2937', 
+        background: 'rgba(17, 24, 39, 0.5)', 
+        backdropFilter: 'blur(8px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10
+      }}>
+        <div className="container" style={{ padding: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }} className="text-gradient">
                 🌳 Bonsai-Style Demo
               </h1>
-              <p className="text-sm text-gray-400 mt-1">
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.25rem' }}>
                 WebGPU LLM • Runs entirely in your browser
               </p>
             </div>
             {tokensPerSec && (
-              <div className="text-right">
-                <div className="text-lg font-mono text-green-400">{tokensPerSec} tok/s</div>
-                <div className="text-xs text-gray-500">Generation speed</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '1.125rem', fontFamily: 'monospace', color: '#4ade80' }}>
+                  {tokensPerSec} tok/s
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Generation speed</div>
               </div>
             )}
           </div>
@@ -162,42 +168,39 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <div className="flex-1 max-w-4xl mx-auto w-full px-4 py-6 flex flex-col">
+      <div className="container" style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column' }}>
         {loadingState === 'idle' && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-            <div className="text-6xl mb-6">🌳</div>
-            <h2 className="text-3xl font-bold mb-4">Browser-Based LLM Demo</h2>
-            <p className="text-gray-400 mb-2 max-w-md">
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1rem' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🌳</div>
+            <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '1rem' }}>Browser-Based LLM Demo</h2>
+            <p style={{ color: '#9ca3af', marginBottom: '0.5rem', maxWidth: '28rem' }}>
               Inspired by PrismML&apos;s Bonsai — running AI models directly in your browser 
               using WebGPU. No server required.
             </p>
-            <div className="flex gap-4 text-sm text-gray-500 mb-8">
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: '#6b7280', marginBottom: '2rem' }}>
               <span>✓ Runs locally</span>
               <span>✓ Private</span>
               <span>✓ No API costs</span>
             </div>
             
             {webGPUSupported === false ? (
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 max-w-md">
-                <p className="text-red-400 font-medium">WebGPU Not Supported</p>
-                <p className="text-sm text-gray-400 mt-2">
+              <div className="card" style={{ maxWidth: '28rem', borderColor: '#7f1d1d' }}>
+                <p style={{ color: '#f87171', fontWeight: '500' }}>WebGPU Not Supported</p>
+                <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>
                   Please use Chrome 113+, Edge 113+, or another WebGPU-enabled browser.
                 </p>
               </div>
             ) : (
-              <button
-                onClick={initializeModel}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-semibold py-3 px-8 rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/25"
-              >
+              <button onClick={initializeModel} className="btn btn-primary">
                 Load Model
               </button>
             )}
             
-            <div className="mt-8 p-4 bg-gray-900 rounded-lg max-w-md">
-              <p className="text-sm text-gray-400">
-                <strong className="text-green-400">About Bonsai:</strong> PrismML&apos;s 1-bit Bonsai 8B 
+            <div className="card" style={{ marginTop: '2rem', maxWidth: '28rem' }}>
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                <strong style={{ color: '#4ade80' }}>About Bonsai:</strong> PrismML&apos;s 1-bit Bonsai 8B 
                 fits an 8B parameter model in just 1.15GB — 14x smaller than standard models.
-                <a href="https://prismml.com" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300 ml-1">
+                <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80', marginLeft: '0.25rem' }}>
                   Learn more →
                 </a>
               </p>
@@ -206,19 +209,16 @@ export default function Home() {
         )}
 
         {(loadingState === 'checking' || loadingState === 'loading') && (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="w-full max-w-md">
-              <div className="text-center mb-6">
-                <div className="text-4xl mb-4 animate-pulse">🌳</div>
-                <p className="text-gray-300">{statusText}</p>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: '28rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }} className="animate-pulse">🌳</div>
+                <p style={{ color: '#d1d5db' }}>{statusText}</p>
               </div>
-              <div className="bg-gray-800 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 h-full transition-all duration-300"
-                  style={{ width: `${loadProgress}%` }}
-                />
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${loadProgress}%` }} />
               </div>
-              <p className="text-center text-sm text-gray-500 mt-2">
+              <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
                 {loadProgress}%
               </p>
             </div>
@@ -226,14 +226,14 @@ export default function Home() {
         )}
 
         {loadingState === 'error' && (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="bg-red-900/30 border border-red-700 rounded-lg p-6 max-w-md text-center">
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-red-400 font-medium mb-2">Failed to Load Model</p>
-              <p className="text-sm text-gray-400">{statusText}</p>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="card" style={{ maxWidth: '28rem', textAlign: 'center', borderColor: '#7f1d1d' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
+              <p style={{ color: '#f87171', fontWeight: '500', marginBottom: '0.5rem' }}>Failed to Load Model</p>
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>{statusText}</p>
               <button
                 onClick={() => setLoadingState('idle')}
-                className="mt-4 text-sm text-green-400 hover:text-green-300"
+                style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#4ade80', background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 Try Again
               </button>
@@ -244,46 +244,42 @@ export default function Home() {
         {loadingState === 'ready' && (
           <>
             {/* Chat messages */}
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem' }}>
               {messages.length === 0 && (
-                <div className="text-center text-gray-500 py-12">
-                  <p className="text-lg mb-2">Model loaded! 🎉</p>
-                  <p className="text-sm">Start chatting</p>
+                <div style={{ textAlign: 'center', color: '#6b7280', padding: '3rem 0' }}>
+                  <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>Model loaded! 🎉</p>
+                  <p style={{ fontSize: '0.875rem' }}>Start chatting</p>
                 </div>
               )}
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {messages.map((msg, i) => (
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      msg.role === 'user'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-800 text-gray-100'
-                    }`}
+                    key={i}
+                    style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-              {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-800 rounded-2xl px-4 py-3">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <div className={`message ${msg.role === 'user' ? 'message-user' : 'message-assistant'}`}>
+                      <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
                     </div>
                   </div>
-                </div>
-              )}
+                ))}
+                {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div className="message message-assistant">
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%' }} className="animate-bounce" />
+                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%', animationDelay: '0.1s' }} className="animate-bounce" />
+                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%', animationDelay: '0.2s' }} className="animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
-            <div className="border-t border-gray-800 pt-4">
-              <div className="flex gap-3">
+            <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <input
                   type="text"
                   value={input}
@@ -291,12 +287,13 @@ export default function Home() {
                   onKeyDown={handleKeyDown}
                   placeholder="Type a message..."
                   disabled={isGenerating}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-green-500 transition-colors disabled:opacity-50"
+                  className="input"
+                  style={{ flex: 1, opacity: isGenerating ? 0.5 : 1 }}
                 />
                 <button
                   onClick={sendMessage}
                   disabled={isGenerating || !input.trim()}
-                  className="bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                  className="btn btn-primary"
                 >
                   {isGenerating ? '...' : 'Send'}
                 </button>
@@ -307,15 +304,15 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-4">
-        <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500">
+      <footer style={{ borderTop: '1px solid #1f2937', padding: '1rem 0' }}>
+        <div className="container" style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280' }}>
           <p>
             Powered by{' '}
-            <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300">
+            <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>
               WebLLM
             </a>
             {' '}• Inspired by{' '}
-            <a href="https://prismml.com" target="_blank" rel="noopener" className="text-green-400 hover:text-green-300">
+            <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>
               PrismML Bonsai
             </a>
           </p>
