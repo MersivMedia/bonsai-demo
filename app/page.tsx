@@ -19,6 +19,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [tokensPerSec, setTokensPerSec] = useState<number | null>(null);
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
+  const [isIOS, setIsIOS] = useState(false);
   
   const engineRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -32,6 +33,21 @@ export default function Home() {
   }, [messages]);
 
   useEffect(() => {
+    // Check if iOS
+    const checkIOS = () => {
+      const ua = navigator.userAgent;
+      return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    };
+    
+    const iosDevice = checkIOS();
+    setIsIOS(iosDevice);
+    
+    if (iosDevice) {
+      setWebGPUSupported(false);
+      return;
+    }
+
+    // Check WebGPU support
     const checkWebGPU = async () => {
       if (typeof navigator === 'undefined' || !navigator.gpu) {
         setWebGPUSupported(false);
@@ -55,7 +71,7 @@ export default function Home() {
 
     if (!webGPUSupported) {
       setLoadingState('error');
-      setStatusText('WebGPU not supported. Please use Chrome 113+ or Edge 113+.');
+      setStatusText('WebGPU not supported on this device.');
       return;
     }
 
@@ -136,30 +152,16 @@ export default function Home() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <header style={{ 
-        borderBottom: '1px solid #1f2937', 
-        background: 'rgba(17, 24, 39, 0.5)', 
-        backdropFilter: 'blur(8px)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10
-      }}>
+      <header style={{ borderBottom: '1px solid #1f2937', background: 'rgba(17, 24, 39, 0.5)', backdropFilter: 'blur(8px)', position: 'sticky', top: 0, zIndex: 10 }}>
         <div className="container" style={{ padding: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }} className="text-gradient">
-                🌳 Bonsai-Style Demo
-              </h1>
-              <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.25rem' }}>
-                WebGPU LLM • Runs entirely in your browser
-              </p>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }} className="text-gradient">🌳 Bonsai-Style Demo</h1>
+              <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.25rem' }}>WebGPU LLM • Runs entirely in your browser</p>
             </div>
             {tokensPerSec && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '1.125rem', fontFamily: 'monospace', color: '#4ade80' }}>
-                  {tokensPerSec} tok/s
-                </div>
+                <div style={{ fontSize: '1.125rem', fontFamily: 'monospace', color: '#4ade80' }}>{tokensPerSec} tok/s</div>
                 <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Generation speed</div>
               </div>
             )}
@@ -167,44 +169,57 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main content */}
       <div className="container" style={{ flex: 1, padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column' }}>
         {loadingState === 'idle' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '1rem' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🌳</div>
             <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '1rem' }}>Browser-Based LLM Demo</h2>
             <p style={{ color: '#9ca3af', marginBottom: '0.5rem', maxWidth: '28rem' }}>
-              Inspired by PrismML&apos;s Bonsai — running AI models directly in your browser 
-              using WebGPU. No server required.
+              Inspired by PrismML&apos;s Bonsai — running AI models directly in your browser using WebGPU. No server required.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: '#6b7280', marginBottom: '2rem' }}>
-              <span>✓ Runs locally</span>
-              <span>✓ Private</span>
-              <span>✓ No API costs</span>
-            </div>
             
-            {webGPUSupported === false ? (
-              <div className="card" style={{ maxWidth: '28rem', borderColor: '#7f1d1d' }}>
+            {isIOS ? (
+              <div className="card" style={{ maxWidth: '28rem', marginTop: '1.5rem', borderColor: '#92400e' }}>
+                <p style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>📱 iPhone/iPad Detected</p>
+                <p style={{ color: '#fbbf24', fontWeight: '500', marginBottom: '0.5rem' }}>WebGPU not available on iOS yet</p>
+                <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '1rem' }}>
+                  Apple hasn&apos;t enabled WebGPU in iOS browsers. Try this demo on:
+                </p>
+                <ul style={{ fontSize: '0.875rem', color: '#d1d5db', textAlign: 'left', marginLeft: '1.5rem', marginBottom: '1rem' }}>
+                  <li>🖥️ Mac with Safari 17+ or Chrome</li>
+                  <li>💻 Windows/Linux with Chrome or Edge</li>
+                  <li>🤖 Android with Chrome 121+</li>
+                </ul>
+                <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                  Or check out <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>PrismML&apos;s Bonsai</a> for native iOS support.
+                </p>
+              </div>
+            ) : webGPUSupported === false ? (
+              <div className="card" style={{ maxWidth: '28rem', marginTop: '1.5rem', borderColor: '#7f1d1d' }}>
                 <p style={{ color: '#f87171', fontWeight: '500' }}>WebGPU Not Supported</p>
                 <p style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>
-                  Please use Chrome 113+, Edge 113+, or another WebGPU-enabled browser.
+                  Please use Chrome 113+, Edge 113+, or Safari 17+ on macOS.
                 </p>
               </div>
             ) : (
-              <button onClick={initializeModel} className="btn btn-primary">
-                Load Model
-              </button>
+              <>
+                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', color: '#6b7280', marginBottom: '2rem' }}>
+                  <span>✓ Runs locally</span>
+                  <span>✓ Private</span>
+                  <span>✓ No API costs</span>
+                </div>
+                <button onClick={initializeModel} className="btn btn-primary">Load Model</button>
+              </>
             )}
             
-            <div className="card" style={{ marginTop: '2rem', maxWidth: '28rem' }}>
-              <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                <strong style={{ color: '#4ade80' }}>About Bonsai:</strong> PrismML&apos;s 1-bit Bonsai 8B 
-                fits an 8B parameter model in just 1.15GB — 14x smaller than standard models.
-                <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80', marginLeft: '0.25rem' }}>
-                  Learn more →
-                </a>
-              </p>
-            </div>
+            {!isIOS && (
+              <div className="card" style={{ marginTop: '2rem', maxWidth: '28rem' }}>
+                <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                  <strong style={{ color: '#4ade80' }}>About Bonsai:</strong> PrismML&apos;s 1-bit Bonsai 8B fits an 8B parameter model in just 1.15GB — 14x smaller than standard models.
+                  <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80', marginLeft: '0.25rem' }}>Learn more →</a>
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -218,9 +233,7 @@ export default function Home() {
               <div className="progress-bar">
                 <div className="progress-fill" style={{ width: `${loadProgress}%` }} />
               </div>
-              <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                {loadProgress}%
-              </p>
+              <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>{loadProgress}%</p>
             </div>
           </div>
         )}
@@ -231,19 +244,13 @@ export default function Home() {
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
               <p style={{ color: '#f87171', fontWeight: '500', marginBottom: '0.5rem' }}>Failed to Load Model</p>
               <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>{statusText}</p>
-              <button
-                onClick={() => setLoadingState('idle')}
-                style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#4ade80', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                Try Again
-              </button>
+              <button onClick={() => setLoadingState('idle')} style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#4ade80', background: 'none', border: 'none', cursor: 'pointer' }}>Try Again</button>
             </div>
           </div>
         )}
 
         {loadingState === 'ready' && (
           <>
-            {/* Chat messages */}
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem' }}>
               {messages.length === 0 && (
                 <div style={{ textAlign: 'center', color: '#6b7280', padding: '3rem 0' }}>
@@ -253,69 +260,28 @@ export default function Home() {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
-                  >
+                  <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                     <div className={`message ${msg.role === 'user' ? 'message-user' : 'message-assistant'}`}>
                       <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
                     </div>
                   </div>
                 ))}
-                {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                    <div className="message message-assistant">
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%' }} className="animate-bounce" />
-                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%', animationDelay: '0.1s' }} className="animate-bounce" />
-                        <div style={{ width: '0.5rem', height: '0.5rem', background: '#6b7280', borderRadius: '50%', animationDelay: '0.2s' }} className="animate-bounce" />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               <div ref={messagesEndRef} />
             </div>
-
-            {/* Input */}
             <div style={{ borderTop: '1px solid #1f2937', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message..."
-                  disabled={isGenerating}
-                  className="input"
-                  style={{ flex: 1, opacity: isGenerating ? 0.5 : 1 }}
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={isGenerating || !input.trim()}
-                  className="btn btn-primary"
-                >
-                  {isGenerating ? '...' : 'Send'}
-                </button>
+                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Type a message..." disabled={isGenerating} className="input" style={{ flex: 1, opacity: isGenerating ? 0.5 : 1 }} />
+                <button onClick={sendMessage} disabled={isGenerating || !input.trim()} className="btn btn-primary">{isGenerating ? '...' : 'Send'}</button>
               </div>
             </div>
           </>
         )}
       </div>
 
-      {/* Footer */}
       <footer style={{ borderTop: '1px solid #1f2937', padding: '1rem 0' }}>
         <div className="container" style={{ textAlign: 'center', fontSize: '0.875rem', color: '#6b7280' }}>
-          <p>
-            Powered by{' '}
-            <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>
-              WebLLM
-            </a>
-            {' '}• Inspired by{' '}
-            <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>
-              PrismML Bonsai
-            </a>
-          </p>
+          <p>Powered by <a href="https://webllm.mlc.ai/" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>WebLLM</a> • Inspired by <a href="https://prismml.com" target="_blank" rel="noopener" style={{ color: '#4ade80' }}>PrismML Bonsai</a></p>
         </div>
       </footer>
     </main>
